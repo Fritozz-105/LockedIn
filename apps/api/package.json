@@ -1,0 +1,23 @@
+{
+  "name": "@lockedin/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@lockedin/shared": "workspace:*",
+    "fastify": "^5.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.0"
+  }
+}
