@@ -1,0 +1,13 @@
+# Keep the build context lean and never ship local installs or secrets.
+**/node_modules
+**/dist
+**/.expo
+**/.expo-shared
+.git
+.github
+**/.env
+**/.env.local
+*.log
+.DS_Store
+expo-export*
+docs

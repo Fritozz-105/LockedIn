@@ -1,0 +1,7 @@
+# Tells Heroku to build the API image from our Dockerfile server-side (no local
+# Docker needed) and run it as the web dyno.
+build:
+  docker:
+    web: Dockerfile
+run:
+  web: node dist/server.js
