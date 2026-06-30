@@ -1,0 +1,27 @@
+{
+  "name": "lockedin",
+  "version": "0.0.0",
+  "private": true,
+  "description": "LockedIn — mesocycle workout tracker, body-weight tracking, and a read-only AI coach.",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.19.0 <21"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "lint": "pnpm -r --if-present run lint",
+    "test": "pnpm -r --if-present run test",
+    "build": "pnpm -r --if-present run build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.0",
+    "typescript": "^5.7.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "react": "19.2.3",
+      "react-dom": "19.2.3",
+      "react-native": "0.85.3"
+    }
+  }
+}
