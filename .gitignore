@@ -39,3 +39,7 @@ coverage/
 
 # Misc
 .cache/
+docs/
+CLAUDE.md
+AGENTS.md
+opencode.json
