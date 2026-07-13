@@ -39,6 +39,15 @@ coverage/
 
 # Misc
 .cache/
+
+# Supabase CLI local state
+supabase/.temp/
+supabase/.branches/
+.supabase/
+
+# plan-review tooling browser state
+.playwright-mcp/
+
 docs/
 CLAUDE.md
 AGENTS.md
