@@ -371,7 +371,5 @@ do $$ begin
   end if;
 end $$;
 
-reset role;
-
 rollback;
 \echo SMOKE PASSED — all assertions held; transaction rolled back
