@@ -1,3 +1,4 @@
+\set ON_ERROR_STOP on
 -- LockedIn schema smoke test (read-only defense-in-depth posture, 2026-07-13).
 -- Everything runs in ONE transaction and ROLLS BACK — safe against the hosted
 -- (pre-launch) database. Any failed assertion raises and aborts with a nonzero
@@ -145,6 +146,14 @@ values
   ('00000000-0000-0000-0000-000000000105','00000000-0000-0000-0000-000000000042',4,'00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e1',null,null,135,8,'lb',null,'00000000-0000-0000-0000-000000000104',1,now()),
   ('00000000-0000-0000-0000-000000000106','00000000-0000-0000-0000-000000000042',4,'00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e1',null,null, 95,8,'lb',null,'00000000-0000-0000-0000-000000000104',2,now());
 
+-- one completed WARMUP set (id …107): §5's totals must stay 6.00/3.00 with this row
+-- present, so the D83 exclusion arm can actually fail (review CR-002)
+insert into public.exercise_set
+  (id, workout_exercise_id, set_number, user_id, exercise_id,
+   weight, reps, weight_unit, is_warmup, completed_at)
+values
+  ('00000000-0000-0000-0000-000000000107','00000000-0000-0000-0000-000000000042',5,'00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e1',95,10,'lb',true,now());
+
 -- agent persistence rows for user A (RLS probe targets)
 insert into public.agent_conversation (id, user_id, title)
 values ('00000000-0000-0000-0000-0000000000a9',
@@ -162,7 +171,7 @@ insert into public.mutation_dedupe (user_id, idempotency_key, response)
 values ('00000000-0000-0000-0000-0000000000a1',
         '00000000-0000-0000-0000-0000000000dd', '{"ok":true}'::jsonb);
 
--- ---- 4. render query returns the 6 rows in exact UI order ----
+-- ---- 4. render query returns the 7 rows in exact UI order (warmup renders too) ----
 do $$
 declare got uuid[];
 begin
@@ -173,7 +182,8 @@ begin
   if got is distinct from array[
     '00000000-0000-0000-0000-000000000101','00000000-0000-0000-0000-000000000102',
     '00000000-0000-0000-0000-000000000103','00000000-0000-0000-0000-000000000104',
-    '00000000-0000-0000-0000-000000000105','00000000-0000-0000-0000-000000000106'
+    '00000000-0000-0000-0000-000000000105','00000000-0000-0000-0000-000000000106',
+    '00000000-0000-0000-0000-000000000107'
   ]::uuid[] then
     raise exception 'FAIL: render order wrong, got %', got;
   end if;
@@ -235,6 +245,63 @@ do $$ begin
     values ('00000000-0000-0000-0000-0000000000a1',
             '00000000-0000-0000-0000-0000000000dd', '{"ok":"dup"}'::jsonb);
     raise exception 'FAIL: mutation_dedupe accepted a duplicate (user_id, idempotency_key)';
+  exception when unique_violation then null;  -- expected
+  end;
+end $$;
+
+-- is_custom ⟷ created_by_user_id coherence (review CR-003)
+do $$ begin
+  begin
+    insert into public.exercise_library (slug, name, primary_muscle, equipment, mechanic, is_custom)
+    values ('smoke-orphan-custom', 'Smoke Orphan Custom', 'chest', 'cable', 'isolation', true);
+    raise exception 'FAIL: exercise_library accepted is_custom=true without created_by_user_id';
+  exception when check_violation then null;  -- expected
+  end;
+end $$;
+
+-- parent_set_id ⟷ drop_order coherence (review CR-003)
+do $$ begin
+  begin
+    insert into public.exercise_set (workout_exercise_id, set_number, user_id, exercise_id, parent_set_id)
+    values ('00000000-0000-0000-0000-000000000042', 6,
+            '00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000e1',
+            '00000000-0000-0000-0000-000000000104');
+    raise exception 'FAIL: exercise_set accepted a dropset child without drop_order';
+  exception when check_violation then null;  -- expected
+  end;
+end $$;
+
+-- target rep range sanity (review CR-003)
+do $$ begin
+  begin
+    insert into public.workout_exercise (workout_id, exercise_id, user_id, position,
+                                         target_sets, target_rep_min, target_rep_max)
+    values ('00000000-0000-0000-0000-0000000000f1',
+            '00000000-0000-0000-0000-0000000000e1',
+            '00000000-0000-0000-0000-0000000000a1', 2, 3, 10, 8);
+    raise exception 'FAIL: workout_exercise accepted target_rep_min > target_rep_max';
+  exception when check_violation then null;  -- expected
+  end;
+end $$;
+
+-- one workout per day slot: UNIQUE (week_id, day_number) enforcement (review CR-003)
+do $$ begin
+  begin
+    insert into public.workout (week_id, day_number, user_id, name)
+    values ('00000000-0000-0000-0000-0000000000d1', 1,
+            '00000000-0000-0000-0000-0000000000a1', 'Push A duplicate');
+    raise exception 'FAIL: workout accepted a duplicate (week_id, day_number)';
+  exception when unique_violation then null;  -- expected
+  end;
+end $$;
+
+-- UNIQUE (mesocycle_id, week_number) enforcement (review CR-003)
+do $$ begin
+  begin
+    insert into public.mesocycle_week (mesocycle_id, week_number, user_id)
+    values ('00000000-0000-0000-0000-0000000000c1', 1,
+            '00000000-0000-0000-0000-0000000000a1');
+    raise exception 'FAIL: mesocycle_week accepted a duplicate (mesocycle_id, week_number)';
   exception when unique_violation then null;  -- expected
   end;
 end $$;
@@ -310,7 +377,7 @@ begin
     where id = '00000000-0000-0000-0000-0000000000f1';
   select count(*) into own_conv from public.agent_conversation
     where id = '00000000-0000-0000-0000-0000000000a9';
-  if n <> 6 then raise exception 'FAIL: owner cannot see their own sets under RLS (got %)', n; end if;
+  if n <> 7 then raise exception 'FAIL: owner cannot see their own sets under RLS (got %)', n; end if;
   if own_custom <> 1 or own_custom_muscle <> 1 then
     raise exception 'FAIL: owner cannot see their own custom exercise under RLS';
   end if;
